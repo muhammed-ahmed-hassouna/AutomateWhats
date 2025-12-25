@@ -95,6 +95,15 @@ ipcMain.handle("wa:getMessages", async (event, chatId) => {
   return waService.getMessages(chatId);
 });
 
+ipcMain.handle("wa:getProfilePicture", async (event, contactId) => {
+  try {
+    const picUrl = await waService.getProfilePicture(contactId);
+    return { ok: true, picUrl };
+  } catch (e) {
+    return { ok: false, error: String(e) };
+  }
+});
+
 // ipcMain.handle("wa:downloadMedia", async (event, chatId, type) => {
 //   try {
 //     const result = await waService.downloadMedia(chatId, type, (progress) => {
