@@ -2,3 +2,10 @@
 /dist
 .qodo
 package-lock.json
+node_modules
+
+# managed
+**.data.json
+**.node-persist**
+**_IGNORE_**
+# end managed

@@ -84,6 +84,13 @@ async function getMessages(chatId) {
   return out;
 }
 
+// Return the raw full message object (not the lightweight mapped version)
+async function getRawMessage(chatId, messageId) {
+  if (!client) throw new Error("WA client not ready");
+  const messages = await client.getAllMessagesInChat(chatId, true, false);
+  return messages.find(m => m.id === messageId);
+}
+
 async function downloadMedia(chatId, type, progressCb) {
   if (!client) throw new Error("WA client not ready");
   const messages = await client.getAllMessagesInChat(chatId, true, false);
@@ -142,4 +149,5 @@ module.exports = {
   downloadMedia,
   reshaper,
   emitter,
+  getRawMessage,
 };

@@ -10,4 +10,7 @@ contextBridge.exposeInMainWorld("api", {
   openFolder: (folderPath) => ipcRenderer.invoke("wa:openFolder", folderPath),
   onProgress: (cb) => ipcRenderer.on("wa:progress", (e, data) => cb(data)),
   onNewMessage: (cb) => ipcRenderer.on("wa:newMessage", (e, data) => cb(data)),
+// Print API
+  getPrinters: () => ipcRenderer.invoke("print:getPrinters"),
+  printPdfs: (jobs) => ipcRenderer.invoke("print:printPdfs", jobs),
 });

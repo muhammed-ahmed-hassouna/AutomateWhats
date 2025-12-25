@@ -95,16 +95,16 @@ ipcMain.handle("wa:getMessages", async (event, chatId) => {
   return waService.getMessages(chatId);
 });
 
-ipcMain.handle("wa:downloadMedia", async (event, chatId, type) => {
-  try {
-    const result = await waService.downloadMedia(chatId, type, (progress) => {
-      event.sender.send("wa:progress", progress);
-    });
-    return { ok: true, result };
-  } catch (e) {
-    return { ok: false, error: String(e) };
-  }
-});
+// ipcMain.handle("wa:downloadMedia", async (event, chatId, type) => {
+//   try {
+//     const result = await waService.downloadMedia(chatId, type, (progress) => {
+//       event.sender.send("wa:progress", progress);
+//     });
+//     return { ok: true, result };
+//   } catch (e) {
+//     return { ok: false, error: String(e) };
+//   }
+// });
 
 ipcMain.handle("wa:openFolder", async (event, folderPath) => {
   try {
@@ -117,28 +117,130 @@ ipcMain.handle("wa:openFolder", async (event, folderPath) => {
 
 ipcMain.handle("wa:downloadMessage", async (event, chatId, messageId) => {
   try {
-    // Get the specific message
-    const messages = await waService.getMessages(chatId);
-    const message = messages.find(m => m.id === messageId);
-    
-    if (!message || !message.mimetype) {
+    // Get the raw full message (contains mediaKey/filehash/etc.)
+    const rawMessage = await waService.getRawMessage(chatId, messageId);
+
+    if (!rawMessage || !rawMessage.mimetype) {
       return { ok: false, error: "Message not found or has no media" };
     }
-    
+
     // Download single file
     const safeName = chatId.replace(/[^a-zA-Z0-9]/g, "_");
     const downloadDir = path.join(__dirname, "..", "downloads", safeName, "individual");
     if (!fs.existsSync(downloadDir)) {
       fs.mkdirSync(downloadDir, { recursive: true });
     }
-    
-    const buffer = await require("@open-wa/wa-automate").decryptMedia(message);
-    let ext = (message.mimetype || "").split("/")[1] || "bin";
-    const filename = path.join(downloadDir, `${message.filename || message.id}.${ext}`);
+
+    const buffer = await require("@open-wa/wa-automate").decryptMedia(rawMessage);
+    let ext = (rawMessage.mimetype || "").split("/")[1] || "bin";
+    const filename = path.join(downloadDir, `${rawMessage.filename || rawMessage.id}.${ext}`);
     fs.writeFileSync(filename, buffer);
-    
+
     return { ok: true, result: { folder: downloadDir } };
   } catch (e) {
     return { ok: false, error: String(e) };
   }
 });
+// Add these handlers to your existing main.js
+
+// Get list of available printers
+ipcMain.handle("print:getPrinters", async () => {
+  try {
+    const { getPrinters } = require("pdf-to-printer");
+    const printers = await getPrinters();
+    const defaultPrinter = printers.find(p => p.default)?.name || printers[0]?.name || "";
+    return { 
+      ok: true, 
+      printers: printers.map(p => p.name),
+      default: defaultPrinter
+    };
+  } catch (e) {
+    return { ok: false, error: String(e), printers: [], default: "" };
+  }
+});
+
+// Updated downloadMedia to return file list
+ipcMain.handle("wa:downloadMedia", async (event, chatId, type) => {
+  try {
+    const result = await waService.downloadMedia(chatId, type, (progress) => {
+      event.sender.send("wa:progress", progress);
+    });
+    
+    // Get list of downloaded files
+    const files = [];
+    if (result.folder && fs.existsSync(result.folder)) {
+      const fileList = fs.readdirSync(result.folder);
+      for (const filename of fileList) {
+        const fullPath = path.join(result.folder, filename);
+        const stats = fs.statSync(fullPath);
+        files.push({
+          path: fullPath,
+          filename: filename,
+          size: formatFileSize(stats.size)
+        });
+      }
+    }
+    
+    return { 
+      ok: true, 
+      result: {
+        ...result,
+        files: files
+      }
+    };
+  } catch (e) {
+    return { ok: false, error: String(e) };
+  }
+});
+
+// Updated print handler with N-up support
+ipcMain.handle("print:printPdfs", async (event, jobs) => {
+  try {
+    const { print } = require("pdf-to-printer");
+    
+    for (const job of jobs) {
+      const filePath = job.path;
+      const opts = job.options || {};
+
+      const printOpts = {};
+      
+      // Printer selection
+      if (opts.printer) printOpts.printer = opts.printer;
+      
+      // Duplex
+      if (opts.duplex && opts.duplex !== "none") {
+        printOpts.duplex = opts.duplex;
+      }
+      
+      // Color
+      if (opts.color === false) {
+        printOpts.monochrome = true;
+      }
+      
+      // Copies
+      if (opts.copies && opts.copies > 1) {
+        printOpts.copies = opts.copies;
+      }
+      
+      // N-up (pages per sheet)
+      if (opts.nup && opts.nup !== "1") {
+        printOpts.pagesPerSheet = parseInt(opts.nup);
+      }
+      
+      await print(filePath, printOpts);
+    }
+
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: String(e) };
+  }
+});
+
+// Helper function to format file size
+function formatFileSize(bytes) {
+  if (bytes === 0) return '0 Bytes';
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+}
