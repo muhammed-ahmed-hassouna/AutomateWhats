@@ -67,40 +67,34 @@ export default function MessageList({ messages = [], chatId }) {
   }, []);
 
   async function handleDownload(m) {
-    const downloader =
-      window.api?.downloadMessage ||
-      window.api?.downloadAttachment ||
-      window.api?.downloadMedia;
-    
+    // Ensure we have a message id to request a single-message download
+    if (!m || !m.id) {
+      alert("Cannot download: message is missing id/media metadata");
+      return;
+    }
+
+    const downloader = window.api?.downloadMessage;
     if (!downloader) {
       alert("Download API not available");
       return;
     }
-    
+
     try {
       setDownloading({ starting: true, filename: m.filename || "file" });
-      
-      // Set a timeout to auto-complete if backend doesn't send updates
+
       const timeoutId = setTimeout(() => {
         setDownloading({ done: true, filename: m.filename || "file" });
-      }, 30000); // 30 seconds max
-      
-      // Call the download function
-      const result = await downloader(chatId, m.id || m.mediaKey || m.filename || m);
-      
-      // Clear the timeout since we got a response
+      }, 30000);
+
+      const result = await downloader(chatId, m.id);
+
       clearTimeout(timeoutId);
-      
-      // Check if result indicates success
+
       if (result?.ok || result?.success) {
-        setDownloading({ 
-          done: true, 
-          folder: result.folder || result.path || result.result?.folder || "Downloads folder" 
-        });
+        setDownloading({ done: true, folder: result.folder || result.path || result.result?.folder || "Downloads folder" });
       } else if (result?.error) {
         setDownloading({ error: result.error });
       } else {
-        // If no result or unclear result, assume success
         setDownloading({ done: true, filename: m.filename || "file" });
       }
     } catch (e) {

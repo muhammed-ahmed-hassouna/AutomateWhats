@@ -1,12 +1,15 @@
 import React, { useEffect, useState } from "react";
 import ChatList from "./components/ChatListNew";
 import ChatView from "./components/ChatView";
+import PrintManager from "./components/PrintManager";
 
 export default function App() {
   const [chats, setChats] = useState([]);
   const [status, setStatus] = useState("Connecting...");
   const [selectedChat, setSelectedChat] = useState(null);
   const [messagesMap, setMessagesMap] = useState({});
+  const [showPrint, setShowPrint] = useState(false);
+  const [downloadedFiles, setDownloadedFiles] = useState([]);
 
   useEffect(() => {
     let mounted = true;
@@ -64,10 +67,29 @@ export default function App() {
         onSelect={(id) => setSelectedChat(id == null ? null : String(id))}
         messagesMap={messagesMap}
       />
-      <ChatView
-        chatId={selectedChat}
-        messages={messagesMap[String(selectedChat)] || []}
-      />
+      <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+        <div style={{ padding: 8, borderBottom: "1px solid #eee", display: "flex", justifyContent: "space-between" }}>
+          <div>{status}</div>
+          <div>
+            <button onClick={() => setShowPrint((s) => !s)}>{showPrint ? "Hide Print" : "Show Print"}</button>
+          </div>
+        </div>
+        <div style={{ flex: 1, display: "flex", gap: 8 }}>
+          <div style={{ flex: 1 }}>
+            <ChatView 
+              chatId={selectedChat} 
+              messages={messagesMap[String(selectedChat)] || []}
+              downloadedFiles={downloadedFiles}
+              setDownloadedFiles={setDownloadedFiles}
+            />
+          </div>
+          {showPrint && (
+            <div style={{ width: 420, borderLeft: "1px solid #eee", background: "#fafafa" }}>
+              <PrintManager files={downloadedFiles} onClose={() => setShowPrint(false)} />
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

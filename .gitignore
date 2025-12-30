@@ -2,7 +2,11 @@
 /dist
 .qodo
 package-lock.json
+<<<<<<< HEAD
 /node_modules
+=======
+node_modules
+>>>>>>> ce012e0aae223c08db50e6ffddb776aab86593b1
 
 # managed
 **.data.json

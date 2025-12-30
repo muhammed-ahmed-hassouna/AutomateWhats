@@ -31,7 +31,11 @@ export default function ChatListNew({
               onClick={() => onSelect && onSelect(c.id)}
             >
               <div className="avatar">
-                <FaCircle />
+                {c.profilePic ? (
+                  <img src={c.profilePic} alt={c.name} style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "50%" }} />
+                ) : (
+                  <FaCircle />
+                )}
               </div>
               <div className="meta">
                 <div className="row">

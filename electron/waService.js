@@ -45,11 +45,24 @@ async function getChats() {
   if (!client) throw new Error("WA client not ready");
   const chats = await client.getAllChats();
   // map to lightweight data
-  return chats.map((c) => ({
-    id: c.id,
-    name: c.contact?.formattedName || c.contact?.pushname || c.id,
-    t: c.t,
-  }));
+  return chats.map((c) => {
+    let profilePic = null;
+    try {
+      // Try to get profile picture from contact object
+      if (c.contact?.profilePicThumbObj?.imgFull) {
+        profilePic = c.contact.profilePicThumbObj.imgFull;
+      }
+    } catch (e) {
+      // Ignore errors getting profile pic
+    }
+    
+    return {
+      id: c.id,
+      name: c.contact?.formattedName || c.contact?.pushname || c.id,
+      t: c.t,
+      profilePic: profilePic,
+    };
+  });
 }
 
 async function getMessages(chatId) {
@@ -82,6 +95,13 @@ async function getMessages(chatId) {
   }
 
   return out;
+}
+
+// Return the raw full message object (not the lightweight mapped version)
+async function getRawMessage(chatId, messageId) {
+  if (!client) throw new Error("WA client not ready");
+  const messages = await client.getAllMessagesInChat(chatId, true, false);
+  return messages.find(m => m.id === messageId);
 }
 
 async function downloadMedia(chatId, type, progressCb) {
@@ -134,6 +154,24 @@ async function downloadMedia(chatId, type, progressCb) {
   return { total: mediaMessages.length, saved: count, folder: downloadDir };
 }
 
+// Get profile picture for a contact
+async function getProfilePicture(contactId) {
+  if (!client) throw new Error("WA client not ready");
+  try {
+    // Try to get the contact first
+    const contact = await client.getContact(contactId);
+    if (contact && contact.profilePicThumbObj && contact.profilePicThumbObj.imgFull) {
+      return contact.profilePicThumbObj.imgFull;
+    }
+    
+    // Fallback: try getProfilePicUrl
+    const picUrl = await client.getProfilePicUrl(contactId);
+    return picUrl || null;
+  } catch (e) {
+    console.error("Error getting profile picture:", e);
+    return null;
+  }
+}
 
 module.exports = {
   init,
@@ -142,4 +180,6 @@ module.exports = {
   downloadMedia,
   reshaper,
   emitter,
+  getRawMessage,
+  getProfilePicture,
 };
